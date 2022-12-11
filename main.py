@@ -13,10 +13,22 @@ poop" and any other value.
 The input must be a Numbers.app sheet.
 """
 
+import argparse
 from datetime import datetime, timedelta, timezone
 
-import pandas
+from email.message import EmailMessage
 from numbers_parser import Document
+import outgoing
+
+DIGESTION_TIME = timedelta(hours=24)
+"""At most how long after food is eaten might it contribute to poop quality?"""
+
+IGNORE_FOODS = {"450.0"}
+
+
+class Arguments(argparse.Namespace):
+    """Command-line arguments."""
+    email: bool = False
 
 
 class Food:
@@ -25,6 +37,26 @@ class Food:
     def __init__(self, name: str):
         """Initialize the food from a string."""
         self.name = name
+        self.num_good_poops = 0
+        self.num_bad_poops = 0
+
+    def addpoop(self, pooptype: str):
+        """Add a poop event that came soon after this food."""
+        if pooptype == Poop.GOOD:
+            self.num_good_poops += 1
+        elif pooptype == Poop.BAD:
+            self.num_bad_poops += 1
+
+    def quality(self) -> float:
+        """
+        Return the quality of poops caused by this food.
+
+        The quality is a float between 0 and 1, where 0 is bad and 1 is good.
+        """
+
+        if self.num_bad_poops == 0:
+            return 0
+        return float(self.num_good_poops) / float(self.num_bad_poops)
 
 
 class Poop:
@@ -49,10 +81,17 @@ class Row:
     POOP: str = "poop"
     FOOD: str = "food"
 
-    def __init__(self, row: pandas.Series):
-        """Initialize the row from a Pandas row."""
+    class NoTimestampError(Exception):
+        """An exception raised when the row has no date."""
+        def __init__(self, msg: str):
+            self.msg = msg
+
+        def __str__(self):
+            return f"No timestamp on row: {self.msg}"
+
+    def __init__(self, row) -> None:
+        """Initialize the row from a Numbers row."""
         self._row = row
-        self.datetime: datetime | None = None
 
         dt: str | datetime | None = row[0].value
         try:
@@ -67,7 +106,13 @@ class Row:
             try:
                 self.datetime = datetime.fromisoformat(dt)
             except TypeError as e:
-                raise TypeError(f"Invalid datetime: {dt} (type {dt.__class__}): {e}")
+                raise self.NoTimestampError(
+                    f"Invalid datetime: {dt} (type {dt.__class__}): {e}",
+                )
+        else:
+            raise self.NoTimestampError(
+                f"Invalid datetime: {dt} (type {dt.__class__})"
+            )
 
         if self.datetime and self.datetime.tzinfo is None:
             self.datetime = self.datetime.replace(
@@ -94,9 +139,25 @@ class Cupboard:
         if name not in self._foods:
             self._foods[name] = Food(name)
         return self._foods[name]
+    
+    def all(self) -> set[Food]:
+        """Return all foods in the cupboard."""
+        return set(self._foods.values())
 
 
-def main() -> None:
+def send_email(subject: str, body: str) -> None:
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["To"] = "ben@twos.dev"
+    msg["From"] = "pottytrain@mainframe.twos.dev"
+    msg.set_content(body)
+
+    with outgoing.from_config_file("pyproject.toml") as sender:
+        # Now send that letter!
+        sender.send(msg)
+
+
+def main(email=False) -> None:
     """Print delayed autocorrelations in the Numbers sheet."""
     doc = Document(
         "/Users/glacials/Library/Mobile Documents/"
@@ -106,49 +167,57 @@ def main() -> None:
     tables = sheets[0].tables
 
     cupboard: Cupboard = Cupboard()
-    bads: dict[Food, int] = {}
-    goods: dict[Food, int] = {}
-
-    data = doc.sheets[0].tables[0].rows(values_only=True)
-    df = pandas.DataFrame(data[1:], columns=data[0])
 
     rows: list[Row] = []
     for row in tables[0].rows()[1:]:
         # TODO: Use data even when no datetime is present.
         if row[1] in {None, ""}:
             continue
-        rows.append(Row(row))
+        try:
+            rows.append(Row(row))
+        except Row.NoTimestampError:
+            continue
 
-    for row in rows:
-        if row.type == Row.POOP:
-            poop = row.to_poop()
-            for food in rows:
-                if food.type == Row.POOP:
-                    continue
-                if food.datetime is None or poop.datetime is None:
-                    continue
-                if food.datetime > poop.datetime:
-                    break
-                if poop.datetime - food.datetime < timedelta(hours=24):
-                    if poop.type == Poop.BAD:
-                        bads[cupboard.get(food.event)] = (
-                            bads.get(cupboard.get(food.event), 0) + 1
-                        )
-                    if poop.type == Poop.GOOD:
-                        goods[cupboard.get(food.event)] = (
-                            goods.get(cupboard.get(food.event), 0) + 1
-                        )
+    for pooprow in rows:
+        if pooprow.type != Row.POOP:
+            continue
+        poop = pooprow.to_poop()
+        # For each poop row, go find recent food rows and tag them
+        for foodrow in rows:
+            if foodrow.type != Row.FOOD or foodrow.event in IGNORE_FOODS:
+                continue
+            if poop.datetime - foodrow.datetime < timedelta(hours=24):
+                cupboard.get(foodrow.event).addpoop(poop.type)
+    
+    s = ""
+    longest_food_name = max(len(food.name) for food in cupboard.all())
+    s += f"+ {'-' * longest_food_name}-----------+\n"
+    s += f"| {'food'.rjust(longest_food_name, ' ')} | quality |\n"
+    s += f"+ {'-' * longest_food_name}-+---------+\n"
+    for food in sorted(list(cupboard.all()), key=lambda f: f.quality()):
+        s += (
+            f"| {food.name.rjust(longest_food_name, ' ')} |"
+            f" {food.quality():.2f}    |\n"
+        )
+    s += f"+ {'-' * longest_food_name}-+---------+\n"
 
-    print("Good foods:")
-    for food, num in goods.items():
-        if num > 2 and num > bads.get(food, 0):
-            print(f"{food.name}: {num}")
-    print("")
-    print("Bad foods:")
-    for food, num in goods.items():
-        if num > 2 and num > goods.get(food, 0):
-            print(f"{food.name}: {num}")
+    print(s)
+    if email:
+        today = datetime.today().strftime('%Y-%m-%d')
+        send_email(subject=f"Food journal digest – {today}", body=s)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        prog="pottytrain",
+        description="Find out which foods you eat are causing bad poops.",
+    )
+    parser.add_argument(
+        '-e',
+        '--email',
+        action='store_true',
+        help='Send an email with the final results',
+    )
+    namespace = Arguments()
+    args = parser.parse_args(namespace=namespace)
+    main(args.email)

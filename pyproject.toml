@@ -1,0 +1,9 @@
+[outgoing]
+method = "mailgun"
+domain = "mainframe.twos.dev"
+api-key = { file = "mailgun.key" }
+dkim = true
+tags = [ "sent-with-outgoing", "my-campaign" ]
+tracking-clicks = "htmlonly"
+headers = { }
+variables = { sender = "outgoing" }
