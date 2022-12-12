@@ -145,12 +145,17 @@ class Cupboard:
         return set(self._foods.values())
 
 
-def send_email(subject: str, body: str) -> None:
+def send_email(subject: str, text_body: str, html_body: str) -> None:
     msg = EmailMessage()
+
+# Add the html version.  This converts the message into a multipart/alternative
+# container, with the original text message as the first part and the new html
+# message as the second part.
     msg["Subject"] = subject
     msg["To"] = "ben@twos.dev"
     msg["From"] = "pottytrain@mainframe.twos.dev"
-    msg.set_content(body)
+    msg.set_content(text_body)
+    msg.add_alternative( html_body, subtype='html')
 
     with outgoing.from_config_file("pyproject.toml") as sender:
         # Now send that letter!
@@ -204,7 +209,11 @@ def main(email=False) -> None:
     print(s)
     if email:
         today = datetime.today().strftime('%Y-%m-%d')
-        send_email(subject=f"Food journal digest, {today}", body=s)
+        send_email(
+            subject=f"Food journal digest, {today}",
+            text_body=s,
+            html_body=f"<pre style='font: monospace;'>{s}</pre>",
+        )
 
 
 if __name__ == "__main__":
