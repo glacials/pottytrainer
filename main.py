@@ -204,7 +204,7 @@ def main(email=False) -> None:
     print(s)
     if email:
         today = datetime.today().strftime('%Y-%m-%d')
-        send_email(subject=f"Food journal digest – {today}", body=s)
+        send_email(subject=f"Food journal digest, {today}", body=s)
 
 
 if __name__ == "__main__":
