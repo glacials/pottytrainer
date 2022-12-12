@@ -191,7 +191,7 @@ def main(email=False) -> None:
     
     s = ""
     longest_food_name = max(len(food.name) for food in cupboard.all())
-    s += f"+ {'-' * longest_food_name}-----------+\n"
+    s += f"+ {'-' * longest_food_name}-+---------+\n"
     s += f"| {'food'.rjust(longest_food_name, ' ')} | quality |\n"
     s += f"+ {'-' * longest_food_name}-+---------+\n"
     for food in sorted(list(cupboard.all()), key=lambda f: f.quality()):
@@ -199,7 +199,7 @@ def main(email=False) -> None:
             f"| {food.name.rjust(longest_food_name, ' ')} |"
             f" {food.quality():.2f}    |\n"
         )
-    s += f"+ {'-' * longest_food_name}-+---------+\n"
+    s += f"+{'-' * longest_food_name}--+---------+\n"
 
     print(s)
     if email:
