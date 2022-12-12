@@ -24,6 +24,9 @@ DIGESTION_TIME = timedelta(hours=24)
 """At most how long after food is eaten might it contribute to poop quality?"""
 
 IGNORE_FOODS = {"450.0"}
+ALIASES = {
+        "grilled cold noodles": "kao leng mian",
+        }
 
 
 class Arguments(argparse.Namespace):
@@ -136,6 +139,8 @@ class Cupboard:
     def get(self, name: str) -> Food:
         """Get a food from the cupboard."""
         name = name.strip().lower()
+        if name in ALIASES:
+            name = ALIASES[name]
         if name not in self._foods:
             self._foods[name] = Food(name)
         return self._foods[name]
