@@ -15,7 +15,7 @@ The input must be a Numbers.app sheet.
 
 import argparse
 from datetime import datetime, timedelta, timezone
-from os.path import join, realpath
+from os.path import dirname, join, realpath
 
 from email.message import EmailMessage
 from numbers_parser import Document
@@ -163,7 +163,7 @@ def send_email(subject: str, text_body: str, html_body: str) -> None:
     msg.set_content(text_body)
     msg.add_alternative(html_body, subtype='html')
 
-    config_file = join(realpath(__file__), "pyproject.toml")
+    config_file = join(realpath(dirname(__file__)), "pyproject.toml")
     with outgoing.from_config_file(config_file) as sender:
         sender.send(msg)
 
