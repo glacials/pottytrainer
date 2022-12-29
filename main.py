@@ -87,10 +87,13 @@ class Row:
 
     class NoTimestampError(Exception):
         """An exception raised when the row has no date."""
+
         def __init__(self, msg: str):
+            """Initialize the exception."""
             self.msg = msg
 
         def __str__(self):
+            """Return the exception message."""
             return f"No timestamp on row: {self.msg}"
 
     def __init__(self, row) -> None:
@@ -115,7 +118,7 @@ class Row:
                 )
         else:
             raise self.NoTimestampError(
-                f"Invalid datetime: {dt} (type {dt.__class__})"
+                f"Invalid datetime: {dt} (type {dt.__class__})",
             )
 
         if self.datetime and self.datetime.tzinfo is None:
@@ -145,23 +148,24 @@ class Cupboard:
         if name not in self._foods:
             self._foods[name] = Food(name)
         return self._foods[name]
-    
+
     def all(self) -> set[Food]:
         """Return all foods in the cupboard."""
         return set(self._foods.values())
 
 
 def send_email(subject: str, text_body: str, html_body: str) -> None:
+    """Send an email with the given subject and body."""
     msg = EmailMessage()
 
-# Add the html version.  This converts the message into a multipart/alternative
-# container, with the original text message as the first part and the new html
-# message as the second part.
+    # Add the html version. This converts the message into a
+    # multipart/alternative container, with the original text message as the
+    # first part and the new html message as the second part.
     msg["Subject"] = subject
     msg["To"] = "ben@twos.dev"
     msg["From"] = "pottytrain@mainframe.twos.dev"
     msg.set_content(text_body)
-    msg.add_alternative(html_body, subtype='html')
+    msg.add_alternative(html_body, subtype="html")
 
     config_file = join(realpath(dirname(__file__)), "pyproject.toml")
     with outgoing.from_config_file(config_file) as sender:
@@ -228,10 +232,10 @@ if __name__ == "__main__":
         description="Find out which foods you eat are causing bad poops.",
     )
     parser.add_argument(
-        '-e',
-        '--email',
-        action='store_true',
-        help='Send an email with the final results',
+        "-e",
+        "--email",
+        action="store_true",
+        help="Send an email with the final results",
     )
     namespace = Arguments()
     args = parser.parse_args(namespace=namespace)
