@@ -197,9 +197,9 @@ def main(email=False) -> None:
         for foodrow in rows:
             if foodrow.type != Row.FOOD or foodrow.event in IGNORE_FOODS:
                 continue
-            if poop.datetime - foodrow.datetime < timedelta(hours=24):
+            if abs(poop.datetime - foodrow.datetime) < timedelta(hours=24):
                 cupboard.get(foodrow.event).addpoop(poop.type)
-    
+
     s = ""
     longest_food_name = max(len(food.name) for food in cupboard.all())
     s += f"+ {'-' * longest_food_name}-+---------+\n"
@@ -214,7 +214,7 @@ def main(email=False) -> None:
 
     print(s)
     if email:
-        today = datetime.today().strftime('%Y-%m-%d')
+        today = datetime.today().strftime("%Y-%m-%d")
         send_email(
             subject=f"Food journal digest, {today}",
             text_body=s,
