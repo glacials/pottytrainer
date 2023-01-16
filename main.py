@@ -15,23 +15,44 @@ The input must be a Numbers.app sheet.
 
 import argparse
 from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 from os.path import dirname, join, realpath
 
-from email.message import EmailMessage
-from numbers_parser import Document
 import outgoing
+from numbers_parser import Document
 
 DIGESTION_TIME = timedelta(hours=24)
 """At most how long after food is eaten might it contribute to poop quality?"""
 
 IGNORE_FOODS = {"450.0"}
 ALIASES = {
-        "grilled cold noodles": "kao leng mian",
-        }
+    "grilled cold noodles": "kao leng mian",
+    "oat milk": "oatmilk",
+}
+
+# When a food is consumed, its ingredients are also considered to be consumed.
+INGREDIENTS = {
+    "cake": {"sugar", "flour", "butter", "eggs", "baking powder", "baking soda"},
+    "cocktail": {"alcohol"},
+    "cheese": {"dairy"},
+    "cream cheese": {"cheese"},
+    "eggs benedict": {"eggs", "english muffin"},
+    "hot chocolate": {"chocolate"},
+    "kao leng mian": {"noodles", "spicy", "kbbq rub", "eggs"},
+    "latkes": {"potato"},
+    "latte": {"milk", "coffee"},
+    "milk": {"dairy"},
+    "oatmeal": {"oats"},
+    "oatmilk": {"oats"},
+    "old fashioned": {"whiskey"},
+    "pizza": {"cheese", "tomato", "bread"},
+    "wine": {"alcohol"},
+}
 
 
 class Arguments(argparse.Namespace):
     """Command-line arguments."""
+
     email: bool = False
 
 
@@ -55,12 +76,27 @@ class Food:
         """
         Return the quality of poops caused by this food.
 
-        The quality is a float between 0 and 1, where 0 is bad and 1 is good.
+        The quality is a float, where 0 is very bad (every occurrence is
+        followed by a bad poop). There is no absolute upper bound, but
+        effectively the maximum will be the number of times the food was eaten.
         """
-
         if self.num_bad_poops == 0:
             return 0
         return float(self.num_good_poops) / float(self.num_bad_poops)
+
+    def confidence(self) -> float:
+        """
+        Return the confidence in the food quality.
+
+        Confience is a float between 0 and 1, where 1 is impossibly confident.
+        """
+        return (
+            (
+                float(self.num_good_poops + self.num_bad_poops)
+                / float(self.num_good_poops + self.num_bad_poops + 1)
+            )
+            - 0.5
+        ) * 2
 
 
 class Poop:
@@ -143,11 +179,18 @@ class Cupboard:
     def get(self, name: str) -> Food:
         """Get a food from the cupboard."""
         name = name.strip().lower()
-        if name in ALIASES:
-            name = ALIASES[name]
+        name = ALIASES.get(name, name)
         if name not in self._foods:
             self._foods[name] = Food(name)
         return self._foods[name]
+
+    def components(self, name: str) -> set[Food]:
+        """Return the components of a food, including the food itself."""
+        food = self.get(name)
+        s: set[Food] = {food}
+        for f in INGREDIENTS.get(food.name, set()):
+            s.update(self.components(f))
+        return s
 
     def all(self) -> set[Food]:
         """Return all foods in the cupboard."""
@@ -202,19 +245,24 @@ def main(email=False) -> None:
             if foodrow.type != Row.FOOD or foodrow.event in IGNORE_FOODS:
                 continue
             if abs(poop.datetime - foodrow.datetime) < timedelta(hours=24):
-                cupboard.get(foodrow.event).addpoop(poop.type)
+                for food in cupboard.components(foodrow.event):
+                    food.addpoop(poop.type)
 
     s = ""
     longest_food_name = max(len(food.name) for food in cupboard.all())
-    s += f"+ {'-' * longest_food_name}-+---------+\n"
-    s += f"| {'food'.rjust(longest_food_name, ' ')} | quality |\n"
-    s += f"+ {'-' * longest_food_name}-+---------+\n"
+    s += f"+ {'-' * longest_food_name}-+---------+------------+\n"
+    s += f"| {'food'.rjust(longest_food_name, ' ')} | quality | confidence |\n"
+    s += f"+ {'-' * longest_food_name}-+---------+------------+\n"
     for food in sorted(list(cupboard.all()), key=lambda f: f.quality()):
+        if food.confidence() < 0.5:
+            continue
         s += (
             f"| {food.name.rjust(longest_food_name, ' ')} |"
-            f" {food.quality():.2f}    |\n"
+            f" {food.quality():.2f}    |"
+            f" {food.confidence():.2f}       |"
+            f"\n"
         )
-    s += f"+{'-' * longest_food_name}--+---------+\n"
+    s += f"+{'-' * longest_food_name}--+---------+------------+\n"
 
     print(s)
     if email:
