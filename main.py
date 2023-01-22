@@ -254,7 +254,7 @@ def main(email=False) -> None:
     s += f"| {'food'.rjust(longest_food_name, ' ')} | quality | confidence |\n"
     s += f"+ {'-' * longest_food_name}-+---------+------------+\n"
     for food in sorted(list(cupboard.all()), key=lambda f: f.quality()):
-        if food.confidence() < 0.5:
+        if food.confidence() < 0.9:
             continue
         s += (
             f"| {food.name.rjust(longest_food_name, ' ')} |"
