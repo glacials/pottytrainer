@@ -17,4 +17,6 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build image
         run: docker build --tag glacials/pottytrainer .
+      - name: Push image
+        run: docker push glacials/pottytrainer:latest
         
