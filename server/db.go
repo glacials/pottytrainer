@@ -177,7 +177,7 @@ type FoodName struct {
 type Ingredient struct {
 	// ID is the unique identifier for this ingredient relationship. It is an
 	// opaque string.
-	ID string `dynamo:"id,hash`
+	ID string `dynamo:"id,hash"`
 	// UserID is the ID of the user who owns this ingredient relationship.
 	// Ingredient relationships are not shared between users.
 	UserID string `dynamo:"user_id,range"`
