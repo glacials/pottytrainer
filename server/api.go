@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"github.com/Timothylock/go-signin-with-apple/apple"
 )
 
 type ctxKey int
@@ -18,10 +20,10 @@ const (
 )
 
 // RootHandler returns a serve mux that handles all routes.
-func RootHandler(version string, db *DB) http.Handler {
+func RootHandler(version string, db *DB, appleClient *AppleClient) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(staticFiles(version == "development")))
-	mux.Handle("/apple/signin", appleSignInHandler(db))
+	mux.Handle("/apple/signin", appleSignInHandler(db, appleClient))
 	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", &ensureAuthentication{
 		handler: apiHandler(db),
 		db:      db,
@@ -56,7 +58,7 @@ func (a *ensureAuthentication) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	a.handler.ServeHTTP(w, r)
 }
 
-func appleSignInHandler(db *DB) http.Handler {
+func appleSignInHandler(db *DB, appleClient *AppleClient) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		var req struct {
@@ -67,11 +69,23 @@ func appleSignInHandler(db *DB) http.Handler {
 			return
 		}
 
-		_, err := db.userFromAppleSignIn(ctx, req.IdentityToken)
+		var result apple.ValidationResponse
+		if err := appleClient.client.VerifyAppToken(ctx, apple.AppValidationTokenRequest{
+			ClientID:     appleClient.clientID,
+			ClientSecret: appleClient.clientSecret,
+			Code:         req.IdentityToken,
+		}, result); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		user, err := db.userFromAppleSignIn(ctx, req.IdentityToken)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		w.Write([]byte("Welcome, " + user.ID))
 	})
 }
 

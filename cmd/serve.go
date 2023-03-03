@@ -8,6 +8,14 @@ import (
 	"twos.dev/pottytrainer/server"
 )
 
+const (
+	// AppleClientID is the environment variable key for the Apple client ID.
+	keyAppleClientID = "APPLE_CLIENT_ID"
+	// AppleClientSecret is the environment variable key for the Apple client
+	// secret.
+	keyAppleClientSecret = "APPLE_CLIENT_SECRET"
+)
+
 // serveCmd represents the serve command.
 var serveCmd = &cobra.Command{
 	Use:   "serve",
@@ -24,9 +32,14 @@ var serveCmd = &cobra.Command{
 			return err
 		}
 
+		appleClient, err := server.NewAppleClient()
+		if err != nil {
+			return err
+		}
+
 		server := http.Server{
 			Addr:    ":8080",
-			Handler: server.RootHandler(cmd.Version, db),
+			Handler: server.RootHandler(cmd.Version, db, appleClient),
 		}
 
 		log.Print("Starting server on :8080")

@@ -4,6 +4,12 @@ _Note: Pottytrainer is still in its early phases, so is hardcoded to work with m
 
 Pottytrainer is a bespoke gastrointestinal insights generator. I wrote it because I was having some subpar poops and couldn't trace them to a specific food. There are apps out there that do this, but nothing whose logging process was low-friction enough to keep me from falling off the wagon.
 
+## Running Locally
+
+```sh
+go install github.com/mitranim/gow
+```
+
 ## Architecture
 
 Pottytrainer is composed of the code in this repository and two additional components.

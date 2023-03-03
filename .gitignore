@@ -130,3 +130,6 @@ dmypy.json
 
 mailgun.key
 .vscode
+
+# Environment files
+.envrc
