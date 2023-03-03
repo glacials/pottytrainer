@@ -7,4 +7,4 @@ RUN go mod download && go mod verify
 COPY . .
 RUN go build -v -o /usr/local/bin/pottytrainer .
 
-CMD ["/usr/local/bin/pottytrainer"]
+CMD ["/usr/local/bin/pottytrainer" "serve"]
