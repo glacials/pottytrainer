@@ -17,6 +17,9 @@ const (
 	// usersTableBaseName is the base name of the users table. The base name is
 	// prepended with the table prefix to get the full table name.
 	usersTableBaseName = "users"
+	// appleUsersTableBaseName is the base name of the apple users table. The base
+	// name is prepended with the table prefix to get the full table name.
+	appleUsersTableBaseName = "apple_users"
 	// tokensTableBaseName is the base name of the tokens table. The base name is
 	// prepended with the table prefix to get the full table name.
 	tokensTableBaseName = "tokens"
@@ -44,6 +47,22 @@ type User struct {
 	// CreatedAt is the time this user record was created.
 	CreatedAt time.Time `dynamo:"created_at"`
 	// UpdatedAt is the time this user record was last updated.
+	UpdatedAt time.Time `dynamo:"updated_at"`
+}
+
+// AppleUser is an association between a user and a "Sign in with Apple"
+// identity.
+type AppleUser struct {
+	// ID is the unique identifier for this association. It is an opaque string.
+	ID string `dynamo:"id,hash"`
+	// UserID is the unique identifier for the user associated with this
+	// association.
+	UserID string `dynamo:"user_id,range"`
+	// IdentityToken is the identity token from the "Sign in with Apple" request.
+	IdentityToken string `dynamo:"identity_token,range"`
+	// CreatedAt is the time this association record was created.
+	CreatedAt time.Time `dynamo:"created_at"`
+	// UpdatedAt is the time this association record was last updated.
 	UpdatedAt time.Time `dynamo:"updated_at"`
 }
 
@@ -177,6 +196,8 @@ type DB struct {
 	db *dynamo.DB
 	// users is the DynamoDB table that holds user records.
 	users dynamo.Table
+	// appleUsers is the DynamoDB table that holds Apple user association records.
+	appleUsers dynamo.Table
 	// tokens is the DynamoDB table that holds API token records.
 	tokens dynamo.Table
 	// eats is the DynamoDB table that holds eat records.
@@ -266,6 +287,9 @@ func NewDB(cfg *DBConfig) (*DB, error) {
 	if db.ingredients, err = db.table(cfg, ingredientsTableBaseName, Ingredient{}); err != nil {
 		return nil, err
 	}
+	if db.appleUsers, err = db.table(cfg, appleUsersTableBaseName, AppleUser{}); err != nil {
+		return nil, err
+	}
 
 	return &db, nil
 }
@@ -280,6 +304,10 @@ func (db *DB) userFromToken(ctx context.Context, token string) (*User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (db *DB) userFromAppleSignIn(ctx context.Context, identityToken string) (*User, error) {
+	return nil, nil
 }
 
 func (db *DB) logPoop(ctx context.Context, userID string, poopedAt time.Time, bad bool) error {

@@ -26,7 +26,7 @@ var serveCmd = &cobra.Command{
 
 		server := http.Server{
 			Addr:    ":8080",
-			Handler: server.RootHandler(db),
+			Handler: server.RootHandler(cmd.Version, db),
 		}
 
 		log.Print("Starting server on :8080")

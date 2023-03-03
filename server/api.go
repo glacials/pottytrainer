@@ -1,3 +1,7 @@
+//go:generate rice embed-go
+
+// Package server handles receiving HTTP requests and returning responses, both
+// for the API and for rendering pages.
 package server
 
 import (
@@ -14,8 +18,10 @@ const (
 )
 
 // RootHandler returns a serve mux that handles all routes.
-func RootHandler(db *DB) http.Handler {
+func RootHandler(version string, db *DB) http.Handler {
 	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(staticFiles(version == "development")))
+	mux.Handle("/apple/signin", appleSignInHandler(db))
 	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", &ensureAuthentication{
 		handler: apiHandler(db),
 		db:      db,
@@ -48,6 +54,25 @@ func (a *ensureAuthentication) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	r = r.WithContext(ctx)
 
 	a.handler.ServeHTTP(w, r)
+}
+
+func appleSignInHandler(db *DB) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		var req struct {
+			IdentityToken string `json:"identity_token"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		_, err := db.userFromAppleSignIn(ctx, req.IdentityToken)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	})
 }
 
 type customHandler func(http.ResponseWriter, *http.Request, *DB, *User)
