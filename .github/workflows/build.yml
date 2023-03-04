@@ -25,6 +25,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::767531804574:role/eksClusterRole
+          aws-region: us-east-1
       - name: Build & push image
         uses: docker/build-push-action@v4
         with:
@@ -34,11 +39,6 @@ jobs:
           tags: |
             glacials/pottytrainer:latest
             ghcr.io/glacials/pottytrainer:latest
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          role-to-assume: arn:aws:iam::767531804574:role/eksClusterRole
-          aws-region: us-east-1
       - name: Deploy
         run: "curl -H \"Content-Type: application/vnd.api+json\" --request POST https://app.terraform.io/api/v2/runs -d '{\"data\": {\"type\": \"runs\", \"relationships\": {\"workspace\": {\"data\": {\"type\": \"workspaces\", \"id\": \"ws-WXyRdoYZ9AofRaBW\"}}}}}'"
         
