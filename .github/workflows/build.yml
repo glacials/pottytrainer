@@ -40,5 +40,5 @@ jobs:
           role-to-assume: arn:aws:iam::767531804574:oidc-provider/token.actions.githubusercontent.com
           aws-region: us-east-1
       - name: Deploy
-        run: curl -H "Content-Type: application/vnd.api+json" --request POST https://app.terraform.io/api/v2/runs -d '{"data": {"type": "runs", "relationships": {"workspace": {"data": {"type": "workspaces", "id": "ws-WXyRdoYZ9AofRaBW"}}}}}'
+        run: "curl -H \"Content-Type: application/vnd.api+json\" --request POST https://app.terraform.io/api/v2/runs -d '{\"data\": {\"type\": \"runs\", \"relationships\": {\"workspace\": {\"data\": {\"type\": \"workspaces\", \"id\": \"ws-WXyRdoYZ9AofRaBW\"}}}}}'"
         
